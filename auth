@@ -1,0 +1,4 @@
+#!/bin/bash
+
+export ZT_TOKEN=$(sudo cat /var/lib/zerotier-one/authtoken.secret)
+export ZT_NODEID=$(sudo zerotier-cli info | cut -d " " -f 3)

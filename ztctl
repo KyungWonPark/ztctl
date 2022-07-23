@@ -1,0 +1,150 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import json
+
+def print_help(args):
+    print("""Usage:
+            help
+
+            net list
+            net create
+            net get <network-id>
+            net set <network-id> <json-file>
+
+            net <network-id> member list
+            net <network-id> member get <member-id>
+            net <network-id> member set <member-id> <json-file>
+            net <network-id> member approve <member-id>
+            net <network-id> member remove <member-id>
+            """)
+    return 0
+
+def net_list(args):
+    out = os.system("curl \"http://localhost:9993/controller/network/\" -H \"X-ZT1-AUTH: {:s}\"".format(TOKEN))
+    print()
+    return out
+
+def net_create(args):
+    out = os.system("curl -X POST \"http://localhost:9993/controller/network/{:s}______\" -H \"X-ZT1-AUTH: {:s}\" -d {{}}".format(NODEID, TOKEN))
+    print()
+    return out
+
+def net_get(args):
+    NWID = args[2]
+    out = os.system("curl \"http://localhost:9993/controller/network/{:s}/\" -H \"X-ZT1-AUTH: {:s}\"".format(NWID, TOKEN))
+    print()
+    return out
+
+def net_set(args):
+    NWID = args[2]
+    FILE = args[3]
+    PAYLOAD = ""
+    with open(FILE, 'r') as f:
+        PAYLOAD = f.read()
+
+    try:
+        json.loads(PAYLOAD)
+    except ValueError as e:
+        print(e)
+        return -1
+
+    out = os.system("curl -X POST \"http://localhost:9993/controller/network/{:s}/\" -H \"X-ZT1-AUTH: {:s}\" -d '{:s}'".format(NWID, TOKEN, PAYLOAD))
+    print()
+
+    return out
+
+def member_list(args):
+    NWID = args[1]
+    out = os.system("curl \"http://localhost:9993/controller/network/{:s}/member\" -H \"X-ZT1-AUTH: {:s}\"".format(NWID, TOKEN))
+    print()
+
+    return out
+
+def member_get(args):
+    NWID = args[1]
+    MEMID = args[4]
+    out = os.system("curl \"http://localhost:9993/controller/network/{:s}/member/{:s}\" -H \"X-ZT1-AUTH: {:s}\"".format(NWID, MEMID, TOKEN))
+    print()
+
+    return out
+
+def member_set(args):
+    NWID = args[1]
+    MEMID = args[4]
+    FILE = args[5]
+    PAYLOAD = ""
+    with open(FILE, 'r') as f:
+        PAYLOAD = f.read()
+
+    try:
+        json.loads(PAYLOAD)
+    except ValueError as e:
+        print(e)
+        return -1
+
+    out = os.system("curl -X POST \"http://localhost:9993/controller/network/{:s}/member/{:s}\" -H \"X-ZT1-AUTH: {:s}\" -d '{:s}'".format(NWID, MEMID, TOKEN, PAYLOAD))
+    print()
+
+    return out
+
+def member_approve(args):
+    NWID = args[1]
+    MEMID = args[4]
+    
+    out = os.system("curl -X POST \"http://localhost:9993/controller/network/{:s}/member/{:s}\" -H \"X-ZT1-AUTH: {:s}\" -d '{{\"authorized\": true}}'".format(NWID, MEMID, TOKEN))
+    print()
+
+    return
+
+def member_remove(args):
+    NWID = args[1]
+    MEMID = args[4]
+
+    out0 = os.system("curl -X POST \"http://localhost:9993/controller/network/{:s}/member/{:s}\" -H \"X-ZT1-AUTH: {:s}\" -d '{{\"authorized\": false}}'".format(NWID, MEMID, TOKEN))
+    print()
+    out1 = os.system("curl -X DELETE \"http://localhost:9993/controller/network/{:s}/member/{:s}\" -H \"X-ZT1-AUTH: {:s}\"".format(NWID, MEMID, TOKEN))
+    print()
+
+    return out0 + out1
+
+CMDS = [
+        { "length": 1, "varMask": [False], "keyword": ["help"], "call": print_help },
+        { "length": 2, "varMask": [False, False], "keyword": ["net", "list"], "call": net_list },
+        { "length": 2, "varMask": [False, False], "keyword": ["net", "create"], "call": net_create },
+        { "length": 3, "varMask": [False, False, True], "keyword": ["net", "get", ""], "call": net_get },
+        { "length": 4, "varMask": [False, False, True, True], "keyword": ["net", "set", "", ""], "call": net_set },
+
+        { "length": 4, "varMask": [False, True, False, False], "keyword": ["net", "", "member", "list"], "call": member_list },
+        { "length": 5, "varMask": [False, True, False, False, True], "keyword": ["net", "", "member", "get", ""], "call": member_get },
+        { "length": 6, "varMask": [False, True, False, False, True, True], "keyword": ["net", "", "member", "set", "", ""], "call": member_set },
+        { "length": 5, "varMask": [False, True, False, False, True], "keyword": ["net", "", "member", "approve", ""], "call": member_approve },
+        { "length": 5, "varMask": [False, True, False, False, True], "keyword": ["net", "", "member", "remove", ""], "call": member_remove },
+        ]
+
+def find_match(args):
+    for i in range(len(CMDS)):
+        cmd = CMDS[i]
+        if cmd["length"] == len(args):
+            MATCH_KEYWORD = True
+            for j in range(cmd["length"]):
+                if not cmd["varMask"][j]:
+                    MATCH_KEYWORD = MATCH_KEYWORD and (args[j] == cmd["keyword"][j])
+
+            if MATCH_KEYWORD:
+                return cmd["call"]
+
+    return print_help
+
+TOKEN = ""
+NODEID = ""
+
+if __name__ == "__main__":
+    TOKEN = os.environ["ZT_TOKEN"]
+    NODEID = os.environ["ZT_NODEID"]
+
+    args = sys.argv[1:]
+    func = find_match(args)
+    code = func(args)
+    exit(code)
